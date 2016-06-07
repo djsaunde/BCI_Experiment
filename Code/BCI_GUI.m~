@@ -149,17 +149,13 @@ x = [];
 
 % begin main loop. refresh FT plot every 0.1 seconds
 
-ws = 2*pi/250;
-wnorm = -pi:ws:pi;
-wnorm = wnorm(1:250);
-w = wnorm*250*.1604;
-
 rand = randsample(10:50, 1);
 for i = 1:3000
     [x, y] = getFFT(inlet, x);
     axes(handles.spectrogram);
-    semilogy(w, y*.01);
-    axis([0 125 0 100]);
+    semilogy((0:length(y)-1)*60/length(y), abs(y));
+        axis([0 60 0 100]);
+
     
     if i == rand
         if randsample(2, 1) == 1

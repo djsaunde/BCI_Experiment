@@ -82,7 +82,6 @@ function BeginButton_Callback(hObject, eventdata, handles)
 
 BCI_setup();
 
-
 % --- Executes when figure1 is resized.
 function figure1_SizeChangedFcn(hObject, eventdata, handles)
 % hObject    handle to figure1 (see GCBO)
