@@ -87,3 +87,6 @@ function figure1_SizeChangedFcn(hObject, eventdata, handles)
 % hObject    handle to figure1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+imshow('binds_lab.png');
+set(gca, 'units', 'normalized', 'position', [0 0 1 1]);

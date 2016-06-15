@@ -70,11 +70,24 @@ maxfig(gcf, 1);
 handles.session = varargin{1};
 handles.userNum = varargin{2};
 
+% load lab streaming layer library
+lib = lsl_loadlib();
+
+% create marker stream info (for ERP-based machine learning)
+disp('Creating a new marker stream info...');
+info = lsl_streaminfo(lib,'marker_stream','Markers',1,0,'cf_string','myuniquesourceid23443');
+
+% open the marker stream outlet
+disp('Opening an outlet...');
+outlet = lsl_outlet(info);
+handles.outlet = outlet;
+
+% get EEG stream
+inlet = getEEG();
+handles.inlet = inlet;
+
 % Update handles structure
 guidata(hObject, handles);
-
-% UIWAIT makes BCI_GUI wait for user response (see UIRESUME)
-% uiwait(handles.Figure);
 
 
 % --- Outputs from this function are returned to the command line.
@@ -96,9 +109,7 @@ function left_hand_CreateFcn(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
-axes(hObject);
 handles.left_handles = imshow('left_hand_edges.jpg');
-guidata(hObject, handles);
 
 
 % --- Executes during object creation, after setting all properties.
@@ -107,9 +118,7 @@ function right_hand_CreateFcn(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
-axes(hObject);
-handles.right_handle = imshow('right_hand_edges.jpg');
-guidata(hObject, handles);
+imshow('right_hand_edges.jpg');
 
 
 % --- Executes on button press in begin_button.
@@ -118,62 +127,55 @@ function begin_button_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles.begin_button = hObject;
-guidata(hObject, handles);
-
+% set begin button to be invisible after user click
 set(handles.begin_button, 'Visible', 'off');
 
-% set(handles.left_hand, 'Visible', 'on');
-% set(handles.right_hand, 'Visible', 'on');
-% set(handles.sprectrogram, 'Visible', 'on');
-
+% first things first, show the left / right hand edge images
 axes(handles.left_hand);
 imshow('left_hand_edges.jpg');
 axes(handles.right_hand);
 imshow('right_hand_edges.jpg');
 
-lib = lsl_loadlib();
+% load the inlet / outlet from GUI startup
+inlet = handles.inlet;
+outlet = handles.outlet;
 
-disp('Creating a new marker stream info...');
-info = lsl_streaminfo(lib,'marker_stream','Markers',1,0,'cf_string','myuniquesourceid23443');
-
-disp('Opening an outlet...');
-outlet = lsl_outlet(info);
-
-% get EEG stream
-inlet = getEEG();
-
-% set up initial EEG window (zeros to start) and FFT window (empty to
-% start)
-x = [];
-
-% begin main loop. refresh FT plot every 0.1 seconds
-
+% compute norm, used for spectral analysis. depends on sampling frequency
+% (250Hz), and a funny math trick we finagled (see 4th line)
 ws = 2*pi/250;
 wnorm = -pi:ws:pi;
 wnorm = wnorm(1:250);
 w = wnorm*250*.1604;
 
+% randomly sample a starting time
 rand = randsample(10:50, 1);
+
+% initialize data array to be empty (will populate this we EEG data)
+x = [];
+
+% begin main loop. refresh FT plot every 0.1 seconds
 for i = 1:3000
     [x, y] = getFFT(inlet, x);
     axes(handles.spectrogram);
-    semilogy(w, y*.01);
-    axis([0 125 0 100]);
+    plot(w, abs(y*.001));
+    set(gca, 'YScale','log', 'YTick', [0 1 10 100], 'YTickLabel', {0 1 10 100}, ...
+        'YLim', [0.05 100], 'XLim', [0 60]);
+    xlabel('Frequency (Hz)');
+    ylabel('Amplitude (microvolts)');
+    title('Frequency Content of Brain Waves');
+    hold on;
     
     if i == rand
-        if randsample(2, 1) == 1
+        % branch conditionally based on a random drawing from {1, 2}
+        if randsample(2, 1) == 1 
+            % left hand logic
             axes(handles.left_hand);
             imshow('left_hand.jpg');
-            mrk = 'L';
-            disp(['now sending ' mrk]);
-            outlet.push_sample({mrk});   % note that the string is wrapped into a cell-array
+            outlet.push_sample({'L'});   % note that the string is wrapped into a cell-array
         else
             axes(handles.right_hand);
             imshow('right_hand.jpg');
-            mrk = 'R';
-            disp(['now sending ' mrk]);
-            outlet.push_sample({mrk});   % note that the string is wrapped into a cell-array
+            outlet.push_sample({'R'});   % note that the string is wrapped into a cell-array
         end
     end
     if i == rand + 60
@@ -183,7 +185,10 @@ for i = 1:3000
         imshow('right_hand_edges.jpg');
         rand = rand + 60 + randsample(10:50, 1);
     end
+    
     pause(0.1);
+    
+    hold off;
 end
 
 % f = fopen(fullfile(filepath,[num2str(handles.userNum) '_' handles.session '.txt']), 'wt');
